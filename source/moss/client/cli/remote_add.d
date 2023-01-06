@@ -87,6 +87,13 @@ import std.stdint : uint64_t;
         /* Only permit unique remotes */
         foreach (repo; cl.remotes.active)
         {
+            /* Allow user to update priority or description for existing remotes */
+            if (name == repo.id && uri == repo.uri && (priority != repo.priority
+                    || description != repo.description))
+            {
+                break;
+            }
+
             if (name == repo.id)
             {
                 error(format!"A remote %s already exists with this name. Choose a unique name."(
