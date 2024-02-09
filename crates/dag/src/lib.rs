@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use petgraph::{
+    algo::tarjan_scc,
     prelude::DiGraph,
     visit::{Dfs, Topo, Walker},
+    Direction,
 };
 
 use self::subgraph::subgraph;
@@ -32,6 +34,10 @@ where
     /// Construct a new Dag
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn get_node_from_index(&self, index: NodeIndex) -> &N {
+        &self.0[index]
     }
 
     /// Adds node N to the graph and returns the index.
@@ -82,6 +88,18 @@ where
         self.0.node_indices().map(|i| &self.0[i])
     }
 
+    pub fn neighbors_incoming(&self, node: &N) -> impl Iterator<Item = &'_ N> {
+        self.0
+            .neighbors_directed(self.get_index(node).unwrap(), Direction::Incoming)
+            .map(|neighbor| &self.0[neighbor])
+    }
+
+    pub fn neighbors_outgoing(&self, node: &N) -> impl Iterator<Item = &'_ N> {
+        self.0
+            .neighbors_directed(self.get_index(node).unwrap(), Direction::Outgoing)
+            .map(|neighbor| &self.0[neighbor])
+    }
+
     /// Perform a depth-first search, given the start index
     pub fn dfs(&self, start: NodeIndex) -> impl Iterator<Item = &'_ N> {
         let dfs = Dfs::new(&self.0, start);
@@ -101,6 +119,20 @@ where
         let mut transposed = self.0.clone();
         transposed.reverse();
         Self(transposed)
+    }
+
+    pub fn scc(&self) -> Vec<Vec<NodeIndex>> {
+        // Note: tarjan and kosaraju have the same time complexity, but tarjan
+        // has a better constant factor. They should produce the equivalent
+        // result regardless.
+        tarjan_scc(&self.0)
+    }
+
+    pub fn scc_nodes(&self) -> Vec<Vec<&N>> {
+        tarjan_scc(&self.0)
+            .iter()
+            .map(|component| component.iter().map(|node_id| &self.0[*node_id]).collect())
+            .collect()
     }
 
     /// Split the graph at the given start node(s) - returning a new graph

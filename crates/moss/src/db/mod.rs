@@ -15,7 +15,7 @@ mod encoding {
     use sqlx::{Sqlite, Type};
     use thiserror::Error;
 
-    use crate::{dependency, package, state, Dependency, Provider};
+    use crate::{dependency, package, state, Conflict, Dependency, Provider};
 
     /// Decode from a database type using [`Encoding::decode`]
     #[derive(Debug, Clone, Copy)]
@@ -103,6 +103,20 @@ mod encoding {
 
     /// Encoding of Provider type
     impl<'a> Encoding<'a> for Provider {
+        type Encoded = String;
+        type Error = dependency::ParseError;
+
+        fn decode(encoded: String) -> Result<Self, Self::Error> {
+            encoded.parse()
+        }
+
+        fn encode(&self) -> String {
+            self.to_string()
+        }
+    }
+
+    /// Encoding of Conflict type
+    impl<'a> Encoding<'a> for Conflict {
         type Encoded = String;
         type Error = dependency::ParseError;
 

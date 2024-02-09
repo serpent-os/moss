@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+use std::collections::{HashMap, HashSet};
+
 use dag::Dag;
 use futures::{StreamExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
@@ -137,7 +139,68 @@ impl<'a> Transaction<'a> {
             items = next;
         }
 
+        match self.list_conflicts(lookup).await {
+            Ok(conflicts) if conflicts.is_empty() => {}
+            Ok(conflicts) => return Err(Error::Conflicts(conflicts)),
+            Err(err) => return Err(err),
+        }
+
         Ok(())
+    }
+
+    /// Check if the current installation causes conflicts.
+    async fn list_conflicts(
+        &self,
+        lookup: Lookup,
+    ) -> Result<Vec<(package::Id, Vec<package::Id>)>, Error> {
+        // let mut graph: Dag<(package::Id, bool)> = Dag::default();
+        // let mut disallowed: HashSet<package::Id> = Default::default();
+        // let mut visited: HashSet<package::Id> = Default::default();
+        let mut cnfls: HashMap<package::Id, Vec<package::Id>> = Default::default();
+
+        let has_package: HashSet<&package::Id> = HashSet::from_iter(self.packages.iter_nodes());
+
+        for pkg_id in self.packages.iter_nodes() {
+            // Grab this package in question
+            let matches = self.registry.by_id(pkg_id).collect::<Vec<_>>().await;
+            let package = matches
+                .first()
+                .ok_or(Error::NoCandidate(pkg_id.clone().into()))?;
+
+            for conflict in package.meta.conflicts.iter() {
+                let provider = Provider {
+                    kind: conflict.kind.clone(),
+                    name: conflict.name.clone(),
+                };
+
+                // Now get the conflicting provider resolved
+                let result = match lookup {
+                    Lookup::Global => self.resolve_installation_provider(provider).await,
+                    Lookup::InstalledOnly => {
+                        self.resolve_provider(ProviderFilter::InstalledOnly(provider))
+                            .await
+                    }
+                };
+
+                match result {
+                    Ok(conflict_id) => {
+                        if has_package.get(&conflict_id).is_some() {
+                            match cnfls.get_mut(&conflict_id) {
+                                Some(v) => v.push(pkg_id.clone()),
+                                None => {
+                                    cnfls.insert(conflict_id, vec![pkg_id.clone()]);
+                                }
+                            }
+                        }
+                    }
+                    Err(Error::NoCandidate(_)) => {}
+                    // Is this how I rethrow/rereturn an error in Rust?
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        Ok(cnfls.into_iter().collect())
     }
 
     /// Attempt to resolve the filterered provider
@@ -205,4 +268,7 @@ pub enum Error {
 
     #[error("meta db")]
     Database(#[from] crate::db::meta::Error),
+
+    #[error("There is conflicts")]
+    Conflicts(Vec<(package::Id, Vec<package::Id>)>),
 }

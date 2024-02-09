@@ -134,6 +134,7 @@ mod test {
                 homepage: Default::default(),
                 licenses: Default::default(),
                 dependencies: Default::default(),
+                conflicts: Default::default(),
                 providers: Default::default(),
                 uri: Default::default(),
                 hash: Default::default(),
@@ -188,6 +189,7 @@ mod test {
                 homepage: Default::default(),
                 licenses: Default::default(),
                 dependencies: Default::default(),
+                conflicts: Default::default(),
                 providers: Default::default(),
                 uri: Default::default(),
                 hash: Default::default(),
@@ -241,5 +243,72 @@ mod test {
         assert!(matches(available, &["b", "e"]));
         assert!(matches(installed_source, &["d"]));
         assert!(matches(available_source, &["e"]));
+    }
+
+    #[tokio::test]
+    async fn test_conflicts() {
+        use crate::{dependency::Kind, Conflict, Package};
+
+        let mut registry = Registry::default();
+
+        let to_id = |id: &str| package::Id::from(id.to_string());
+
+        let package = |id: &str, cnfls: Vec<&str>| Package {
+            id: to_id(id),
+            meta: package::Meta {
+                name: package::Name::from(id.to_string()),
+                version_identifier: Default::default(),
+                source_release: 1,
+                build_release: Default::default(),
+                architecture: Default::default(),
+                summary: Default::default(),
+                description: Default::default(),
+                source_id: Default::default(),
+                homepage: Default::default(),
+                licenses: Default::default(),
+                dependencies: Default::default(),
+                conflicts: HashSet::from_iter(cnfls.into_iter().map(|str| Conflict {
+                    kind: Kind::PackageName,
+                    name: str.to_string(),
+                })),
+                providers: HashSet::from([Provider {
+                    kind: Kind::PackageName,
+                    name: id.to_string(),
+                }]),
+                uri: Default::default(),
+                hash: Default::default(),
+                download_size: Default::default(),
+            },
+            flags: package::Flags::NONE,
+        };
+
+        registry.add_plugin(Plugin::Test(plugin::Test::new(
+            // Priority
+            1,
+            // Id / conflicts
+            vec![package("a", vec!["b"]), package("b", vec![])],
+        )));
+
+        assert!(registry
+            .transaction()
+            .unwrap()
+            .add(vec![to_id("a")])
+            .await
+            .is_ok());
+        assert!(registry
+            .transaction()
+            .unwrap()
+            .add(vec![to_id("b")])
+            .await
+            .is_ok());
+
+        let mut trans = registry.transaction().unwrap();
+        assert!(matches!(
+            trans.add(vec![to_id("a"), to_id("b")]).await.unwrap_err(),
+            transaction::Error::Conflicts(cnfls) if cnfls == vec![(
+                to_id("b"),
+                vec![to_id("a")]
+            )],
+        ));
     }
 }

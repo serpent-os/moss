@@ -135,6 +135,34 @@ impl FromStr for Dependency {
     }
 }
 
+/// A Conflict in moss is a provider that cannot be co-installed with the
+/// current package
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Conflict {
+    /// Tag for the table-type of dependency
+    pub kind: Kind,
+
+    /// Bare target
+    pub name: String,
+}
+
+/// Pretty-printing of dependencies (e.g.: `binary(whoami)`)
+impl fmt::Display for Conflict {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}({})", self.kind, self.name)
+    }
+}
+
+impl FromStr for Conflict {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (kind, name) = parse(s)?;
+
+        Ok(Self { kind, name })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Provider {
     pub kind: Kind,

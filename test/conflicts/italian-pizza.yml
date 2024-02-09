@@ -1,0 +1,17 @@
+#
+# SPDX-FileCopyrightText: © 2020-2022 Serpent OS Developers
+#
+# SPDX-License-Identifier: Zlib
+#
+name        : italian-pizza
+version     : "1"
+release     : 1
+summary     : A certain Italian pizza that hates pineapples
+description : Me no like pineapples.
+license     : Zlib
+homepage    : https://github.com/serpent-os
+conflicts   :
+    - pineapple
+install     : |
+    mkdir -p %(installroot)/%(vendordir)
+    touch %(installroot)/%(vendordir)/italian-pizza

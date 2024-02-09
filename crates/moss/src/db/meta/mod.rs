@@ -19,6 +19,7 @@ enum Table {
     Licenses,
     Dependencies,
     Providers,
+    Conflicts,
 }
 
 #[derive(Debug)]
@@ -169,14 +170,22 @@ impl Database {
             ",
         );
 
+        let mut conflicts_query = sqlx::QueryBuilder::new(
+            "
+            SELECT package, conflict
+            FROM meta_conflicts
+            ",
+        );
+
         if let Some(filter) = filter {
             filter.append(Table::Meta, &mut entry_query);
             filter.append(Table::Licenses, &mut licenses_query);
             filter.append(Table::Dependencies, &mut dependencies_query);
             filter.append(Table::Providers, &mut providers_query);
+            filter.append(Table::Conflicts, &mut conflicts_query)
         }
 
-        let (entries, licenses, dependencies, providers) = futures::try_join!(
+        let (entries, licenses, dependencies, providers, conflicts) = futures::try_join!(
             entry_query
                 .build_query_as::<encoding::Entry>()
                 .fetch_all(&self.pool),
@@ -189,6 +198,9 @@ impl Database {
             providers_query
                 .build_query_as::<encoding::Provider>()
                 .fetch_all(&self.pool),
+            conflicts_query
+                .build_query_as::<encoding::Conflict>()
+                .fetch_all(&self.pool)
         )?;
 
         Ok(entries
@@ -220,6 +232,11 @@ impl Database {
                             .iter()
                             .filter(|l| l.id.0 == entry.id.0)
                             .map(|p| p.provider.0.clone())
+                            .collect(),
+                        conflicts: conflicts
+                            .iter()
+                            .filter(|l| l.id.0 == entry.id.0)
+                            .map(|p| p.conflict.0.clone())
                             .collect(),
                         uri: entry.uri,
                         hash: entry.hash,
@@ -279,11 +296,21 @@ impl Database {
         )
         .bind(package.encode());
 
-        let (entry, licenses, dependencies, providers) = futures::try_join!(
+        let conflicts_query = sqlx::query_as::<_, encoding::Conflict>(
+            "
+            SELECT package, conflict
+            FROM meta_conflicts
+            WHERE package = ?;
+            ",
+        )
+        .bind(package.encode());
+
+        let (entry, licenses, dependencies, providers, conflicts) = futures::try_join!(
             entry_query.fetch_one(&self.pool),
             licenses_query.fetch_all(&self.pool),
             dependencies_query.fetch_all(&self.pool),
             providers_query.fetch_all(&self.pool),
+            conflicts_query.fetch_all(&self.pool),
         )?;
 
         Ok(Meta {
@@ -299,6 +326,7 @@ impl Database {
             licenses: licenses.into_iter().map(|l| l.license).collect(),
             dependencies: dependencies.into_iter().map(|d| d.dependency.0).collect(),
             providers: providers.into_iter().map(|p| p.provider.0).collect(),
+            conflicts: conflicts.into_iter().map(|p| p.conflict.0).collect(),
             uri: entry.uri,
             hash: entry.hash,
             download_size: entry.download_size.map(|i| i as u64),
@@ -449,6 +477,26 @@ impl Database {
             .await?;
         }
 
+        // Conflicts
+        let conflicts = packages
+            .iter()
+            .flat_map(|(id, meta)| meta.conflicts.iter().map(move |conflict| (id, conflict)))
+            .collect::<Vec<_>>();
+        println!("conflicts: {conflicts:?}");
+        if !conflicts.is_empty() {
+            sqlx::QueryBuilder::new(
+                "
+                INSERT INTO meta_conflicts (package, conflict)
+                ",
+            )
+            .push_values(conflicts, |mut b, (id, conflict)| {
+                b.push_bind(id.encode()).push_bind(conflict.encode());
+            })
+            .build()
+            .execute(transaction.acquire().await?)
+            .await?;
+        }
+
         transaction.commit().await?;
 
         Ok(())
@@ -553,8 +601,10 @@ mod encoding {
     }
 
     #[derive(FromRow)]
-    pub struct ProviderPackage {
-        pub package: Decoder<package::Id>,
+    pub struct Conflict {
+        #[sqlx(rename = "package")]
+        pub id: Decoder<package::Id>,
+        pub conflict: Decoder<crate::Conflict>,
     }
 }
 
@@ -593,6 +643,7 @@ mod test {
         database.add(id.clone(), meta.clone()).await.unwrap();
 
         assert_eq!(&meta.name, &"bash-completion".to_string().into());
+        assert_eq!(meta.conflicts, HashSet::default());
 
         // Now retrieve by provider.
         let lookup = Filter::Provider(Provider {
