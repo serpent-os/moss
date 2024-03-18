@@ -10,6 +10,7 @@ use format::Trigger;
 use thiserror::Error;
 
 pub mod format;
+pub mod osenv;
 
 /// Grouped management of a set of triggers
 pub struct Collection<'a> {
