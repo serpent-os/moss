@@ -38,14 +38,14 @@ impl Handler {
         match self {
             Handler::Run { run, args } => {
                 let mut run = run.clone();
-                for (key, value) in &with_match.variables {
+                for (key, value) in &with_match.groups {
                     run = run.replace(&format!("$({key})"), value);
                 }
                 let args = args
                     .iter()
                     .map(|a| {
                         let mut a = a.clone();
-                        for (key, value) in &with_match.variables {
+                        for (key, value) in &with_match.groups {
                             a = a.replace(&format!("$({key})"), value);
                         }
                         a
@@ -108,9 +108,9 @@ mod tests {
 
         let (pattern, _) = trigger.paths.iter().next().expect("Missing path entry");
         let result = pattern
-            .match_path("/usr/lib/modules/6.6.7-267.current/kernel")
+            .matches("/usr/lib/modules/6.6.7-267.current/kernel")
             .expect("Couldn't match path");
-        let version = result.variables.get("version").expect("Missing kernel version");
+        let version = result.groups.get("version").expect("Missing kernel version");
         assert_eq!(version, "6.6.7-267.current", "Wrong kernel version match");
         eprintln!("trigger: {trigger:?}");
         eprintln!("match: {result:?}");
