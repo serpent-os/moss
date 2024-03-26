@@ -16,6 +16,7 @@ mod install;
 mod list;
 mod remove;
 mod repo;
+mod search;
 mod state;
 mod sync;
 mod version;

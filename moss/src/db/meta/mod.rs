@@ -27,10 +27,11 @@ enum Table {
 }
 
 #[derive(Debug)]
-pub enum Filter {
+pub enum Filter<'a> {
     Provider(Provider),
     Dependency(Dependency),
-    Name(package::Name),
+    Name { keyword: package::Name, exact: bool },
+    Summary(&'a str),
 }
 
 #[derive(Debug, Clone)]
@@ -150,10 +151,16 @@ impl Database {
                     .inner_join(model::meta_dependencies::table)
                     .filter(model::meta_dependencies::dependency.eq(dependency.to_string()))
                     .load_iter::<model::Meta, _>(conn)?,
-                Some(Filter::Name(name)) => model::meta::table
-                    .select(model::Meta::as_select())
-                    .filter(model::meta::name.eq(name.to_string()))
-                    .load_iter::<model::Meta, _>(conn)?,
+                Some(Filter::Name { keyword, exact }) => {
+                    let query = model::meta::table.select(model::Meta::as_select()).into_boxed();
+                    if *exact {
+                        query.filter(model::meta::name.eq(keyword.to_string()))
+                    } else {
+                        query.filter(model::meta::name.like(format!("%{keyword}%")))
+                    }
+                    .load_iter::<model::Meta, _>(conn)?
+                }
+                Some(Filter::Summary(keyword)) => todo!(),
                 None => model::meta::table
                     .select(model::Meta::as_select())
                     .load_iter::<model::Meta, _>(conn)?,
@@ -173,11 +180,12 @@ impl Database {
                     .inner_join(model::meta::table.inner_join(model::meta_dependencies::table))
                     .filter(model::meta_dependencies::dependency.eq(dependency.to_string()))
                     .load_iter::<model::License, _>(conn)?,
-                Some(Filter::Name(name)) => model::meta_licenses::table
+                Some(Filter::Name { keyword, exact }) => model::meta_licenses::table
                     .select(model::License::as_select())
+                    .filter(model::meta::name.eq(keyword.to_string()))
                     .inner_join(model::meta::table)
-                    .filter(model::meta::name.eq(name.to_string()))
                     .load_iter::<model::License, _>(conn)?,
+                Some(Filter::Summary(keyword)) => todo!(),
                 None => model::meta_licenses::table
                     .select(model::License::as_select())
                     .load_iter::<model::License, _>(conn)?,
@@ -201,11 +209,19 @@ impl Database {
                     .select(model::Dependency::as_select())
                     .filter(model::meta_dependencies::dependency.eq(dependency.to_string()))
                     .load_iter::<model::Dependency, _>(conn)?,
-                Some(Filter::Name(name)) => model::meta_dependencies::table
-                    .select(model::Dependency::as_select())
-                    .inner_join(model::meta::table)
-                    .filter(model::meta::name.eq(name.to_string()))
-                    .load_iter::<model::Dependency, _>(conn)?,
+                Some(Filter::Name { keyword, exact }) => {
+                    let query = model::meta_dependencies::table
+                        .select(model::Dependency::as_select())
+                        .inner_join(model::meta::table)
+                        .into_boxed();
+                    if *exact {
+                        query.filter(model::meta::name.eq(keyword.to_string()))
+                    } else {
+                        query.filter(model::meta::name.like(format!("%{keyword}%")))
+                    }
+                    .load_iter::<model::Dependency, _>(conn)?
+                }
+                Some(Filter::Summary(keyword)) => todo!(),
                 None => model::meta_dependencies::table
                     .select(model::Dependency::as_select())
                     .load_iter::<model::Dependency, _>(conn)?,
@@ -229,11 +245,19 @@ impl Database {
                     .inner_join(model::meta::table.inner_join(model::meta_dependencies::table))
                     .filter(model::meta_dependencies::dependency.eq(dependency.to_string()))
                     .load_iter::<model::Provider, _>(conn)?,
-                Some(Filter::Name(name)) => model::meta_providers::table
-                    .select(model::Provider::as_select())
-                    .inner_join(model::meta::table)
-                    .filter(model::meta::name.eq(name.to_string()))
-                    .load_iter::<model::Provider, _>(conn)?,
+                Some(Filter::Name { keyword, exact }) => {
+                    let query = model::meta_providers::table
+                        .select(model::Provider::as_select())
+                        .inner_join(model::meta::table)
+                        .into_boxed();
+                    if *exact {
+                        query.filter(model::meta::name.eq(keyword.to_string()))
+                    } else {
+                        query.filter(model::meta::name.like(format!("%{keyword}%")))
+                    }
+                    .load_iter::<model::Provider, _>(conn)?
+                }
+                Some(Filter::Summary(keyword)) => todo!(),
                 None => model::meta_providers::table
                     .select(model::Provider::as_select())
                     .load_iter::<model::Provider, _>(conn)?,

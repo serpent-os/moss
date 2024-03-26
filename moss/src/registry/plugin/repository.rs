@@ -83,7 +83,13 @@ impl Repository {
     }
 
     pub fn query_name(&self, package_name: &package::Name, flags: package::Flags) -> Vec<Package> {
-        self.query(flags, Some(db::meta::Filter::Name(package_name.clone())))
+        self.query(
+            flags,
+            Some(db::meta::Filter::Name {
+                keyword: package_name.clone(),
+                exact: true,
+            }),
+        )
     }
 
     pub fn query_provider_id_only(&self, provider: &Provider, flags: package::Flags) -> Vec<package::Id> {
