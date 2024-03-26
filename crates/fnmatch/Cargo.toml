@@ -6,6 +6,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-regex = "1.10.2"
+regex = "1.10.4"
 thiserror.workspace = true
 serde.workspace = true
