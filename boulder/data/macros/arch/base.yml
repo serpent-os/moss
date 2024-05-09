@@ -58,6 +58,7 @@ actions              :
             set -e
             set -x
             TERM="dumb"; export TERM
+            SOURCE_DATE_EPOCH="%(sourcedateepoch)"; export SOURCE_DATE_EPOCH
             PKG_CONFIG_PATH="%(pkgconfigpath)"; export PKG_CONFIG_PATH
             CFLAGS="%(cflags)"; export CFLAGS
             CGO_CFLAGS="%(cflags)"; export CGO_CFLAGS

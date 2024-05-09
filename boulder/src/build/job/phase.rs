@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::collections::HashSet;
+use std::time::SystemTime;
 
 use itertools::Itertools;
 use stone_recipe::{
@@ -149,6 +150,11 @@ impl Phase {
         parser.add_definition("workdir", work_dir.display());
 
         parser.add_definition("compiler_cache", "/mason/ccache");
+
+        parser.add_definition(
+            "sourcedateepoch",
+            recipe.epoch.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+        );
 
         let path = if ccache {
             "/usr/lib/ccache/bin:/usr/bin:/bin"
