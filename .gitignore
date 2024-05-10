@@ -4,3 +4,6 @@ target
 install
 
 **/db/**/test.db
+
+# Generated source archives
+*.tar.*
