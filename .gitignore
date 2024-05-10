@@ -1,4 +1,6 @@
 /target
 target
+/install
+install
 
 **/db/**/test.db
