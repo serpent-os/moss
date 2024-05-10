@@ -1,0 +1,37 @@
+# NOTE: this trigger must have *all* Trigger fields since
+# it's used to test the correctness of deserialization.
+
+name: trigger
+description: |
+    Trigger's description.
+
+before: before_another_trigger
+after:  after_another_trigger
+
+## Prevent this trigger to run if at least one path
+## exists or we're inside one of the environments.
+inhibitors:
+# Keep at least 2 entries per type
+# to test we're parsing the whole list.
+    paths:
+        - /etc/file1
+        - /etc/file2
+    environment:
+        - chroot
+        - live
+
+## Handlers are associated to paths. They can also be shared
+## among multiple paths.
+handlers:
+    used_handler:
+        run: /usr/bin/used
+        args: ["used1", "used2"]
+
+    unwanted_files:
+        delete: ["/"]
+
+paths:
+    "/usr/lib/modules/(version:*)/kernel" :
+        handlers:
+            - used_handler
+        type: directory

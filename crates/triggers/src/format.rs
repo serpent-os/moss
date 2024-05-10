@@ -3,116 +3,52 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
-use fnmatch::Pattern;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
-/// Filter matched paths to a specific kind
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PathKind {
-    Directory,
-    Symlink,
-}
+use crate::{FileKind, Inhibitor, OsEnv, Pattern};
 
-/// Execution handlers for a trigger
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(untagged)]
-pub enum Handler {
-    Run { run: String, args: Vec<String> },
-    Delete { delete: Vec<String> },
-}
-
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct CompiledHandler(Handler);
-
-impl CompiledHandler {
-    pub fn handler(&self) -> &Handler {
-        &self.0
+/// Deserializes the "inhibitors" field of a [`Trigger`].
+pub fn deserialize_inhibitors<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Inhibitor>, D::Error> {
+    #[derive(Default, Deserialize)]
+    struct Inhibitors {
+        pub paths: Vec<PathBuf>,
+        pub environment: Vec<OsEnv>,
     }
-}
 
-impl Handler {
-    /// Substitute all paths using matched variables
-    pub fn compiled(&self, with_match: &fnmatch::Match) -> CompiledHandler {
-        match self {
-            Handler::Run { run, args } => {
-                let mut run = run.clone();
-                for (key, value) in &with_match.groups {
-                    run = run.replace(&format!("$({key})"), value);
-                }
-                let args = args
-                    .iter()
-                    .map(|a| {
-                        let mut a = a.clone();
-                        for (key, value) in &with_match.groups {
-                            a = a.replace(&format!("$({key})"), value);
-                        }
-                        a
-                    })
-                    .collect();
-                CompiledHandler(Handler::Run { run, args })
-            }
-            Handler::Delete { delete } => CompiledHandler(Handler::Delete { delete: delete.clone() }),
-        }
+    let de = Inhibitors::deserialize(deserializer)?;
+    let mut inhibitors = vec![];
+    for path in de.paths {
+        inhibitors.push(Inhibitor::Path(path));
     }
-}
-
-/// Inhibitors prevent handlers from running based on some constraints
-#[derive(Debug, Deserialize)]
-pub struct Inhibitors {
-    pub paths: Vec<String>,
-    pub environment: Vec<String>,
-}
-
-/// Map handlers to a path pattern and kind filter
-#[derive(Debug, Deserialize)]
-pub struct PathDefinition {
-    pub handlers: Vec<String>,
-    #[serde(rename = "type")]
-    pub kind: Option<PathKind>,
-}
-
-/// Serialization format of triggers
-#[derive(Debug, Deserialize)]
-pub struct Trigger {
-    /// Unique (global scope) identifier
-    pub name: String,
-
-    /// User friendly description
-    pub description: String,
-
-    /// Run before this trigger name
-    pub before: Option<String>,
-
-    /// Run after this trigger name
-    pub after: Option<String>,
-
-    /// Optional inhibitors
-    pub inhibitors: Option<Inhibitors>,
-
-    /// Map glob / patterns to their configuration
-    pub paths: BTreeMap<Pattern, PathDefinition>,
-
-    /// Named handlers within this trigger scope
-    pub handlers: BTreeMap<String, Handler>,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::format::Trigger;
-
-    #[test]
-    fn test_trigger_file() {
-        let trigger: Trigger = serde_yaml::from_str(include_str!("../../../test/trigger.yml")).unwrap();
-
-        let (pattern, _) = trigger.paths.iter().next().expect("Missing path entry");
-        let result = pattern
-            .matches("/usr/lib/modules/6.6.7-267.current/kernel")
-            .expect("Couldn't match path");
-        let version = result.groups.get("version").expect("Missing kernel version");
-        assert_eq!(version, "6.6.7-267.current", "Wrong kernel version match");
-        eprintln!("trigger: {trigger:?}");
-        eprintln!("match: {result:?}");
+    for env in de.environment {
+        inhibitors.push(Inhibitor::Environment(env));
     }
+    Ok(inhibitors)
+}
+
+/// Deserializes the "paths" field of a [`Trigger`].
+pub fn deserialize_patterns<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<Pattern, Vec<String>>, D::Error> {
+    #[derive(Deserialize)]
+    struct PathDefinition {
+        pub handlers: Vec<String>,
+        #[serde(rename = "type")]
+        pub kind: Option<FileKind>,
+    }
+
+    let de = BTreeMap::<fnmatch::Pattern, PathDefinition>::deserialize(deserializer)?;
+    let mut paths = BTreeMap::new();
+    for (pattern, path_definition) in de {
+        paths.insert(
+            Pattern {
+                kind: path_definition.kind,
+                pattern,
+            },
+            path_definition.handlers,
+        );
+    }
+    Ok(paths)
 }
