@@ -17,6 +17,21 @@ pub enum Token {
     Glob { name: Option<String>, matcher: Matcher },
 }
 
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::Text(txt) => write!(f, "{txt}"),
+            Token::Glob { name, matcher } => {
+                if let Some(name) = name {
+                    write!(f, "({name}:{matcher})")
+                } else {
+                    write!(f, "{matcher}")
+                }
+            }
+        }
+    }
+}
+
 /// Types of globs.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Matcher {
@@ -32,6 +47,15 @@ impl From<&RawToken> for Matcher {
             RawToken::MatchOne => Self::One,
             RawToken::MatchAny => Self::Any,
             _ => panic!("unsupported value for Matcher"),
+        }
+    }
+}
+
+impl fmt::Display for Matcher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Matcher::One => write!(f, "?"),
+            Matcher::Any => write!(f, "*"),
         }
     }
 }

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+use std::fmt;
 use std::{collections::HashMap, convert, path::MAIN_SEPARATOR, str::FromStr};
 
 use serde::de;
@@ -18,7 +19,6 @@ use crate::token::{tokens, Matcher, Token};
 /// supported matchers.
 ///
 /// The matchers and the the characters used in the group syntax can be escaped with a backslash ("\\").
-///
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Pattern {
     tokens: Vec<Token>,
@@ -39,6 +39,16 @@ impl<'de> de::Deserialize<'de> for Pattern {
     {
         let s = String::deserialize(deserializer)?;
         FromStr::from_str(&s).map_err(de::Error::custom)
+    }
+}
+
+impl fmt::Display for Pattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+        for token in &self.tokens {
+            string.push_str(&token.to_string());
+        }
+        write!(f, "{string}")
     }
 }
 
@@ -78,6 +88,26 @@ impl Pattern {
         }
         matc.path = path.as_ref().to_string();
         Some(matc)
+    }
+
+    /// Returns a String representation of this Pattern suitable for the [`glob`] crate.
+    pub fn to_std_glob(&self) -> String {
+        let mut glob_str = String::new();
+        for tok in &self.tokens {
+            match tok {
+                Token::Text(txt) => {
+                    glob_str.push_str(txt);
+                }
+                Token::Glob { name: _, matcher } => {
+                    let wildcard = match matcher {
+                        Matcher::One => "?",
+                        Matcher::Any => "*",
+                    };
+                    glob_str.push_str(wildcard);
+                }
+            }
+        }
+        glob_str
     }
 }
 
