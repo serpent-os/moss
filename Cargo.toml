@@ -16,10 +16,11 @@ edition = "2021"
 bytes = "1.5.0"
 chrono = "0.4.34"
 clap = { version = "4.5.1", features = ["derive", "string"] }
+clap_complete = "4.5.2"
 crossterm = "0.27.0"
 derive_more = "0.99"
 dialoguer = "0.11.0"
-diesel = { version = "2.1.4", features = ["sqlite","returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.1.4", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
 diesel_migrations = "2.1.0"
 dirs = "5.0"
 elf = "0.7.4"
@@ -48,7 +49,7 @@ tokio-stream = { version = "0.1.14", features = ["time"] }
 tokio-util = { version = "0.7.9", features = ["io"] }
 url = { version = "2.5.0", features = ["serde"] }
 xxhash-rust = { version = "0.8.10", features = ["xxh3"] }
-zstd = { version = "0.12.4", features = [ "zstdmt" ] }
+zstd = { version = "0.12.4", features = ["zstdmt"] }
 
 [profile.release]
 lto = "thin"

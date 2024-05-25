@@ -31,51 +31,59 @@ pub fn command() -> Command {
         .about("Manage software repositories")
         .long_about("Manage the available software repositories visible to the installed system")
         .subcommand_required(true)
-        .subcommand(
-            Command::new("add")
-                .visible_alias("ar")
-                .arg(arg!(<NAME> "repo name").value_parser(clap::value_parser!(String)))
-                .arg(arg!(<URI> "repo uri").value_parser(clap::value_parser!(Url)))
-                .arg(
-                    Arg::new("comment")
-                        .short('c')
-                        .default_value("...")
-                        .action(ArgAction::Set)
-                        .help("Set the comment for the repository")
-                        .value_parser(clap::value_parser!(String)),
-                )
-                .arg(
-                    Arg::new("priority")
-                        .short('p')
-                        .help("Repository priority")
-                        .action(ArgAction::Set)
-                        .default_value("0")
-                        .value_parser(clap::value_parser!(u64)),
-                ),
+        .subcommand(repo_add("add".to_string(), false))
+        .subcommand(repo_list("list".to_string(), false))
+        .subcommand(repo_remove("remove".to_string(), false))
+        .subcommand(repo_update("update".to_string(), false))
+}
+
+pub fn repo_add(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .arg(arg!(<NAME> "repo name").value_parser(clap::value_parser!(String)))
+        .arg(arg!(<URI> "repo uri").value_parser(clap::value_parser!(Url)))
+        .arg(
+            Arg::new("comment")
+                .short('c')
+                .default_value("...")
+                .action(ArgAction::Set)
+                .help("Set the comment for the repository")
+                .value_parser(clap::value_parser!(String)),
         )
-        .subcommand(
-            Command::new("list")
-                .visible_alias("lr")
-                .about("List system software repositories")
-                .long_about("List all of the system repositories and their status"),
+        .arg(
+            Arg::new("priority")
+                .short('p')
+                .help("Repository priority")
+                .action(ArgAction::Set)
+                .default_value("0")
+                .value_parser(clap::value_parser!(u64)),
         )
-        .subcommand(
-            Command::new("remove")
-                .visible_alias("rr")
-                .about("Remove a repository for the system")
-                .arg(arg!(<NAME> "repo name").value_parser(clap::value_parser!(String))),
-        )
-        .subcommand(
-            Command::new("update")
-                .visible_alias("ur")
-                .about("Update the system repositories")
-                .long_about("If no repository is named, update them all")
-                .arg(arg!([NAME] "repo name").value_parser(clap::value_parser!(String))),
-        )
+        .hide(hide)
+}
+
+pub fn repo_list(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("List system software repositories")
+        .long_about("List all of the system repositories and their status")
+        .hide(hide)
+}
+
+pub fn repo_remove(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("Remove a repository for the system")
+        .arg(arg!(<NAME> "repo name").value_parser(clap::value_parser!(String)))
+        .hide(hide)
+}
+
+pub fn repo_update(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("Update the system repositories")
+        .long_about("If no repository is named, update them all")
+        .arg(arg!([NAME] "repo name").value_parser(clap::value_parser!(String)))
+        .hide(hide)
 }
 
 /// Handle subcommands to `repo`
-pub fn handle(args: &ArgMatches, installation: Installation) -> Result<(), Error> {
+pub fn handle(args: &ArgMatches, subcommand: Option<&str>, installation: Installation) -> Result<(), Error> {
     let config = config::Manager::system(&installation.root, "moss");
 
     let handler = match args.subcommand() {
@@ -88,6 +96,18 @@ pub fn handle(args: &ArgMatches, installation: Installation) -> Result<(), Error
         Some(("list", _)) => Action::List,
         Some(("remove", cmd_args)) => Action::Remove(cmd_args.get_one::<String>("NAME").cloned().unwrap()),
         Some(("update", cmd_args)) => Action::Update(cmd_args.get_one::<String>("NAME").cloned()),
+        None => match subcommand {
+            Some("add") => Action::Add(
+                args.get_one::<String>("NAME").cloned().unwrap(),
+                args.get_one::<Url>("URI").cloned().unwrap(),
+                args.get_one::<String>("comment").cloned().unwrap(),
+                Priority::new(*args.get_one::<u64>("priority").unwrap()),
+            ),
+            Some("list") => Action::List,
+            Some("remove") => Action::Remove(args.get_one::<String>("NAME").cloned().unwrap()),
+            Some("update") => Action::Update(args.get_one::<String>("NAME").cloned()),
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     };
 

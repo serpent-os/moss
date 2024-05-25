@@ -19,23 +19,29 @@ pub fn command() -> Command {
         .about("List packages")
         .long_about("List packages according to a filter")
         .subcommand_required(true)
-        .subcommand(
-            Command::new("installed")
-                .about("List all installed packages")
-                .visible_alias("li")
-                .arg(arg!(-e --"explicit" "List explicit packages only")),
-        )
-        .subcommand(
-            Command::new("available")
-                .about("List all available packages")
-                .visible_alias("la"),
-        )
-        .subcommand(
-            Command::new("sync")
-                .about("List packages with sync changes")
-                .visible_aliases(["ls", "lu"])
-                .arg(arg!(--"upgrade-only" "Only sync packages that have a version upgrade")),
-        )
+        .subcommand(list_installed("installed".to_string(), false))
+        .subcommand(list_available("available".to_string(), false))
+        .subcommand(list_sync("sync".to_string(), false))
+}
+
+pub fn list_available(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("List all available packages")
+        .hide(hide)
+}
+
+pub fn list_installed(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("List all installed packages")
+        .arg(arg!(-e --"explicit" "List explicit packages only"))
+        .hide(hide)
+}
+
+pub fn list_sync(name: String, hide: bool) -> Command {
+    Command::new(name.clone())
+        .about("List packages with sync changes")
+        .arg(arg!(--"upgrade-only" "Only sync packages that have a version upgrade"))
+        .hide(hide)
 }
 
 enum Sync {
@@ -44,7 +50,7 @@ enum Sync {
 }
 
 /// Handle listing by filter
-pub fn handle(args: &ArgMatches, installation: Installation) -> Result<(), Error> {
+pub fn handle(args: &ArgMatches, subcommand: Option<&str>, installation: Installation) -> Result<(), Error> {
     let (filter_flags, sync) = match args.subcommand() {
         Some(("available", _)) => (Flags::new().with_available(), None),
         Some(("installed", args)) => {
@@ -64,6 +70,27 @@ pub fn handle(args: &ArgMatches, installation: Installation) -> Result<(), Error
 
             (Flags::new().with_installed(), Some(sync))
         }
+        None => match subcommand {
+            Some("available") => (Flags::new().with_available(), None),
+            Some("installed") => {
+                let flags = if *args.get_one::<bool>("explicit").unwrap() {
+                    Flags::new().with_installed().with_explicit()
+                } else {
+                    Flags::new().with_installed()
+                };
+                (flags, None)
+            }
+            Some("sync") => {
+                let sync = if *args.get_one::<bool>("upgrade-only").unwrap() {
+                    Sync::Upgrades
+                } else {
+                    Sync::All
+                };
+
+                (Flags::new().with_installed(), Some(sync))
+            }
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     };
 

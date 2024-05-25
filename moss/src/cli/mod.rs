@@ -8,6 +8,7 @@ use clap::{Arg, ArgAction, Command};
 use moss::{installation, runtime, Installation};
 use thiserror::Error;
 
+mod completions;
 mod extract;
 mod index;
 mod info;
@@ -58,14 +59,23 @@ fn command() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg_required_else_help(true)
+        .subcommand(completions::command())
         .subcommand(extract::command())
         .subcommand(index::command())
         .subcommand(info::command())
         .subcommand(inspect::command())
         .subcommand(install::command())
         .subcommand(list::command())
+        .subcommand(list::list_available("la".to_string(), true))
+        .subcommand(list::list_installed("li".to_string(), true))
+        .subcommand(list::list_sync("ls".to_string(), true))
+        .subcommand(list::list_sync("lu".to_string(), true))
         .subcommand(remove::command())
         .subcommand(repo::command())
+        .subcommand(repo::repo_add("ar".to_string(), true))
+        .subcommand(repo::repo_list("lr".to_string(), true))
+        .subcommand(repo::repo_remove("rr".to_string(), true))
+        .subcommand(repo::repo_update("ur".to_string(), true))
         .subcommand(search::command())
         .subcommand(state::command())
         .subcommand(sync::command())
@@ -74,8 +84,7 @@ fn command() -> Command {
 
 /// Process all CLI arguments
 pub fn process() -> Result<(), Error> {
-    let args = replace_aliases(env::args());
-    let matches = command().get_matches_from(args);
+    let matches = command().get_matches_from(env::args());
 
     if matches.get_flag("version") {
         version::print();
@@ -94,14 +103,26 @@ pub fn process() -> Result<(), Error> {
     }
 
     match matches.subcommand() {
+        Some(("completions", args)) => {
+            completions::handle(args, command());
+            Ok(())
+        }
         Some(("extract", args)) => extract::handle(args).map_err(Error::Extract),
         Some(("index", args)) => index::handle(args).map_err(Error::Index),
         Some(("info", args)) => info::handle(args, installation).map_err(Error::Info),
         Some(("inspect", args)) => inspect::handle(args).map_err(Error::Inspect),
         Some(("install", args)) => install::handle(args, installation).map_err(Error::Install),
-        Some(("list", args)) => list::handle(args, installation).map_err(Error::List),
+        Some(("list", args)) => list::handle(args, None, installation).map_err(Error::List),
+        Some(("la", args)) => list::handle(args, Some("available"), installation).map_err(Error::List),
+        Some(("li", args)) => list::handle(args, Some("installed"), installation).map_err(Error::List),
+        Some(("ls", args)) => list::handle(args, Some("sync"), installation).map_err(Error::List),
+        Some(("lu", args)) => list::handle(args, Some("sync"), installation).map_err(Error::List),
         Some(("remove", args)) => remove::handle(args, installation).map_err(Error::Remove),
-        Some(("repo", args)) => repo::handle(args, installation).map_err(Error::Repo),
+        Some(("repo", args)) => repo::handle(args, None, installation).map_err(Error::Repo),
+        Some(("ar", args)) => repo::handle(args, Some("add"), installation).map_err(Error::Repo),
+        Some(("lr", args)) => repo::handle(args, Some("list"), installation).map_err(Error::Repo),
+        Some(("rr", args)) => repo::handle(args, Some("remove"), installation).map_err(Error::Repo),
+        Some(("ur", args)) => repo::handle(args, Some("update"), installation).map_err(Error::Repo),
         Some(("search", args)) => search::handle(args, installation).map_err(Error::Search),
         Some(("state", args)) => state::handle(args, installation).map_err(Error::State),
         Some(("sync", args)) => sync::handle(args, installation).map_err(Error::Sync),
@@ -115,37 +136,6 @@ pub fn process() -> Result<(), Error> {
         }
         _ => unreachable!(),
     }
-}
-
-fn replace_aliases(args: env::Args) -> Vec<String> {
-    const ALIASES: &[(&str, &[&str])] = &[
-        ("li", &["list", "installed"]),
-        ("la", &["list", "available"]),
-        ("ls", &["list", "sync"]),
-        ("lu", &["list", "sync"]),
-        ("ar", &["repo", "add"]),
-        ("lr", &["repo", "list"]),
-        ("rr", &["repo", "remove"]),
-        ("ur", &["repo", "update"]),
-        ("ix", &["index"]),
-        ("it", &["install"]),
-        ("rm", &["remove"]),
-        ("up", &["sync"]),
-    ];
-
-    let mut args = args.collect::<Vec<_>>();
-
-    for (alias, replacements) in ALIASES {
-        let Some(pos) = args.iter().position(|a| a == *alias) else {
-            continue;
-        };
-
-        args.splice(pos..pos + 1, replacements.iter().map(|arg| arg.to_string()));
-
-        break;
-    }
-
-    args
 }
 
 #[derive(Debug, Error)]

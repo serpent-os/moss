@@ -4,11 +4,12 @@
 use std::path::PathBuf;
 
 use boulder::{env, Env};
-use clap::{Args, Parser};
+use clap::{Args, CommandFactory, Parser};
 use thiserror::Error;
 
 mod build;
 mod chroot;
+mod completions;
 mod profile;
 mod recipe;
 
@@ -37,6 +38,7 @@ pub struct Global {
 pub enum Subcommand {
     Build(build::Command),
     Chroot(chroot::Command),
+    Completions(completions::Command),
     Profile(profile::Command),
     Recipe(recipe::Command),
 }
@@ -50,6 +52,7 @@ pub fn process() -> Result<(), Error> {
     match subcommand {
         Subcommand::Build(command) => build::handle(command, env)?,
         Subcommand::Chroot(command) => chroot::handle(command, env)?,
+        Subcommand::Completions(command) => completions::handle(command, Command::command()),
         Subcommand::Profile(command) => profile::handle(command, env)?,
         Subcommand::Recipe(command) => recipe::handle(command, env)?,
     }

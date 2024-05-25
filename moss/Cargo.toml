@@ -13,6 +13,7 @@ vfs = { path = "../crates/vfs" }
 bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 derive_more.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
