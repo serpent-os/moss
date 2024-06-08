@@ -3,8 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    fs, io,
+    env, fs, io,
+    ops::Add,
     path::{Path, PathBuf},
+    process::Command,
+    time::{Duration, SystemTime},
 };
 
 use thiserror::Error;
@@ -18,6 +21,7 @@ pub struct Recipe {
     pub path: PathBuf,
     pub source: String,
     pub parsed: Parsed,
+    pub epoch: SystemTime,
 }
 
 impl Recipe {
@@ -25,8 +29,14 @@ impl Recipe {
         let path = resolve_path(path)?;
         let source = fs::read_to_string(&path)?;
         let parsed = stone_recipe::from_str(&source)?;
+        let epoch = resolve_epoch(&path);
 
-        Ok(Self { path, source, parsed })
+        Ok(Self {
+            path,
+            source,
+            parsed,
+            epoch,
+        })
     }
 
     pub fn build_targets(&self) -> Vec<BuildTarget> {
@@ -99,6 +109,31 @@ pub fn resolve_path(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
 
     // Ensure it's absolute & exists
     fs::canonicalize(&path).map_err(|_| Error::MissingRecipe(path))
+}
+
+fn resolve_epoch(path: &Path) -> SystemTime {
+    // Propagate SOURCE_DATE_EPOCH if set
+    if let Ok(epoch_env) = env::var("SOURCE_DATE_EPOCH") {
+        if let Ok(time) = epoch_env.parse::<u64>() {
+            return SystemTime::UNIX_EPOCH.add(Duration::from_secs(time));
+        }
+    }
+
+    // If we are building from a git repo and have the git binary available to us then use the last commit timestamp
+    if let Ok(git_log) = Command::new("git")
+        .args(["log", "-1", "--format=\"%at\""])
+        .current_dir(path.parent().unwrap())
+        .output()
+    {
+        if let Ok(stdout) = String::from_utf8(git_log.stdout) {
+            if let Ok(result) = stdout.replace(['\n', '"'], "").parse::<u64>() {
+                return SystemTime::UNIX_EPOCH.add(Duration::from_secs(result));
+            }
+        }
+    }
+
+    // As a final fallback use the current time
+    SystemTime::now()
 }
 
 #[derive(Debug, Error)]
