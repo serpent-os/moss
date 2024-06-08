@@ -12,7 +12,7 @@ xxhash-rust.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion.workspace = true
 
 [[bench]]
 name = "read"

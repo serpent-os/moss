@@ -2,9 +2,3 @@
 name = "yaml"
 version = "0.1.0"
 edition.workspace = true
-
-[dependencies]
-itertools.workspace = true
-serde.workspace = true
-serde_yaml.workspace = true
-thiserror.workspace = true
