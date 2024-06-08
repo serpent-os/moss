@@ -8,17 +8,14 @@
 //!
 //! Note that currently we only load from `/usr/share/moss/triggers/{tx,sys.d}/*.yaml`
 //! and do not yet support local triggers
-use std::{
-    path::{Path, PathBuf},
-    process,
-};
+use std::path::{Path, PathBuf};
 
 use crate::Installation;
 use container::Container;
 use itertools::Itertools;
 use serde::Deserialize;
 use thiserror::Error;
-use triggers::format::{CompiledHandler, Handler, Trigger};
+use triggers::{CompiledHandler, Trigger};
 
 use super::PendingFile;
 
@@ -132,13 +129,9 @@ pub(super) fn triggers<'a>(
     };
 
     // Load trigger collection, process all the paths, convert to scoped TriggerRunner vec
-    let mut collection = triggers::Collection::new(triggers.iter())?;
-    collection.process_paths(fstree.iter().map(|m| m.to_string()));
-    let computed_commands = collection
-        .bake()?
-        .into_iter()
-        .map(|trigger| TriggerRunner { scope, trigger })
-        .collect_vec();
+    let graph = triggers::DepGraph::from_iter(triggers.iter());
+    let computed_commands = process_paths(fstree.iter().map(|m| m.to_string()), &graph, scope);
+
     Ok(computed_commands)
 }
 
@@ -184,24 +177,36 @@ impl<'a> TriggerRunner<'a> {
 
 /// Internal executor for triggers.
 fn execute_trigger_directly(trigger: &CompiledHandler) -> Result<(), Error> {
-    match trigger.handler() {
-        Handler::Run { run, args } => {
-            let cmd = process::Command::new(run).args(args).current_dir("/").output()?;
-
-            if let Some(code) = cmd.status.code() {
-                if code != 0 {
-                    eprintln!("Trigger exited with non-zero status code: {run} {args:?}");
-                    eprintln!("   Stdout: {}", String::from_utf8(cmd.stdout).unwrap());
-                    eprintln!("   Stderr: {}", String::from_utf8(cmd.stderr).unwrap());
-                }
-            } else {
-                eprintln!("Failed to execute trigger: {run} {args:?}");
-            }
+    let out = trigger.run(Path::new("/"))?;
+    if let Some(code) = out.status.code() {
+        if code != 0 {
+            eprintln!("Trigger exited with non-zero status code: {}", trigger);
+            eprintln!("   Stdout: {}", String::from_utf8(out.stdout).unwrap());
+            eprintln!("   Stderr: {}", String::from_utf8(out.stderr).unwrap());
         }
-        Handler::Delete { .. } => todo!(),
+    } else {
+        eprintln!("Failed to execute trigger: {}", trigger);
     }
 
     Ok(())
+}
+
+fn process_paths<'a>(
+    paths: impl Iterator<Item = String>,
+    triggers: &triggers::DepGraph,
+    scope: TriggerScope<'a>,
+) -> Vec<TriggerRunner<'a>> {
+    paths
+        .flat_map(move |fspath| {
+            triggers
+                .iter()
+                .flat_map(move |trig| trig.compiled_handlers(fspath.clone())) // FIXME: can I avoid this clone?
+        })
+        .map(|comp_hnd| TriggerRunner {
+            scope,
+            trigger: comp_hnd,
+        })
+        .collect()
 }
 
 #[derive(Debug, Error)]

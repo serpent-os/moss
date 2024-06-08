@@ -1,10 +1,11 @@
 [default]
 
 [default.extend-words]
-restat = "restat"
-
-# thanks to base yamls
+# Thanks to base yamls.
 idae = "idae"
+# Some variables are called "matc" because "match" is reserved in Rust.
+matc = "matc"
+restat = "restat"
 
 [files]
 extend-exclude = [
