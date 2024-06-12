@@ -5,8 +5,10 @@ edition.workspace = true
 
 [dependencies]
 config = { path = "../crates/config" }
+container = { path = "../crates/container" }
 dag = { path = "../crates/dag" }
 stone = { path = "../crates/stone" }
+triggers = { path = "../crates/triggers" }
 tui = { path = "../crates/tui" }
 vfs = { path = "../crates/vfs" }
 
@@ -25,14 +27,14 @@ nix.workspace = true
 rayon.workspace = true
 reqwest.workspace = true
 serde.workspace = true
-serde_yaml.workspace = true
 sha2.workspace = true
 strum.workspace = true
 tokio.workspace = true
-tokio-stream.workspace = true
 tokio-util.workspace = true
 thiserror.workspace = true
 url.workspace = true
 xxhash-rust.workspace = true
-triggers = { version = "0.1.0", path = "../crates/triggers" }
-container = { version = "0.1.0", path = "../crates/container" }
+
+[package.metadata.cargo-machete]
+# Needed for unixepoch() in src/db/state/migrations/2024-03-04-201550_init/up.sql
+ignored = ["libsqlite3-sys"]
