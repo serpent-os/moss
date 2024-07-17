@@ -38,6 +38,7 @@ impl<'a> Chain<'a> {
                 Box::new(handler::elf),
                 Box::new(handler::pkg_config),
                 Box::new(handler::cmake),
+                Box::new(handler::compressman),
                 // Catch-all if not excluded
                 Box::new(handler::include_any),
             ],

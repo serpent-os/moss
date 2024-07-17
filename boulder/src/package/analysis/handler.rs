@@ -1,5 +1,13 @@
-use std::{path::PathBuf, process::Command};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Write};
+use std::{
+    fs,
+    os::unix::fs::symlink,
+    path::{Component, PathBuf},
+    process::Command,
+};
 
+use itertools::Itertools;
 use moss::{dependency, Dependency, Provider};
 
 use crate::package::collect::PathInfo;
@@ -133,4 +141,70 @@ pub fn cmake(bucket: &mut BucketMut, info: &mut PathInfo) -> Result<Response, Bo
     });
 
     Ok(Decision::NextHandler.into())
+}
+
+pub fn compressman(bucket: &mut BucketMut, info: &mut PathInfo) -> Result<Response, BoxError> {
+    if !bucket.recipe.parsed.options.compressman {
+        return Ok(Decision::NextHandler.into());
+    }
+
+    let is_man_file = info.path.components().contains(&Component::Normal("man".as_ref()))
+        && info.file_name().ends_with(|c| ('1'..'9').contains(&c));
+    let is_info_file =
+        info.path.components().contains(&Component::Normal("info".as_ref())) && info.file_name().ends_with(".info");
+
+    if !(is_man_file || is_info_file) {
+        return Ok(Decision::NextHandler.into());
+    }
+
+    let mut generated_path = PathBuf::new();
+
+    /* If we have a man/info symlink update the link to the compressed file */
+    if info.path.is_symlink() {
+        let new_original = format!("{}.zst", fs::canonicalize(&info.path)?.display());
+        let new_link = format!("{}.zst", &info.path.display());
+
+        /*
+         * Depending on the order the files get analysed the new compressed file may not yet exist,
+         * compress it _now_ so the correct metadata src info is returned to the binary writer.
+         */
+        if !std::path::Path::new(&new_original).exists() {
+            let compressed_file = compress_file_zstd(fs::canonicalize(&info.path)?)?;
+            let _ = bucket.paths.install().guest.join(compressed_file);
+        }
+
+        symlink(format!("{}.zst", fs::read_link(&info.path)?.display()), &new_link)?;
+        generated_path.push(bucket.paths.install().guest.join(new_link));
+        return Ok(Decision::ReplaceFile {
+            newpath: generated_path,
+        }
+        .into());
+    }
+
+    let mut compressed_file = PathBuf::from(format!("{}.zst", info.path.display()));
+
+    /* We may have already compressed the file if we encountered a symlink to this file first */
+    if !&compressed_file.exists() {
+        compressed_file = compress_file_zstd(info.path.clone())?;
+    }
+
+    generated_path.push(bucket.paths.install().guest.join(compressed_file));
+
+    pub fn compress_file_zstd(path: PathBuf) -> Result<PathBuf, BoxError> {
+        let output_path = PathBuf::from(format!("{}.zst", path.display()));
+        let input = File::create(&output_path)?;
+        let mut reader = BufReader::new(File::open(&path)?);
+        let mut writer = BufWriter::new(input);
+
+        zstd::stream::copy_encode(&mut reader, &mut writer, 16)?;
+
+        writer.flush()?;
+
+        Ok(output_path)
+    }
+
+    Ok(Decision::ReplaceFile {
+        newpath: generated_path,
+    }
+    .into())
 }
