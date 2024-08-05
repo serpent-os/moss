@@ -446,7 +446,7 @@ enum ContainerError {
     CloseReadFd(#[source] nix::Error),
     #[error("sethostname")]
     SetHostname(#[source] nix::Error),
-    #[error("pivotroot")]
+    #[error("pivot_root")]
     PivotRoot(#[source] nix::Error),
     #[error("unmount old root")]
     UnmountOldRoot(#[source] nix::Error),
