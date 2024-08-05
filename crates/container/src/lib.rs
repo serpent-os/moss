@@ -6,6 +6,7 @@ use std::fs::{self, copy, create_dir_all, remove_dir};
 use std::io;
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::ptr::addr_of_mut;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -235,6 +236,8 @@ fn setup(container: &Container) -> Result<(), ContainerError> {
         setup_networking(&container.root)?;
     }
 
+    setup_localhost()?;
+
     pivot(&container.root, &container.binds)?;
 
     if container.override_accounts {
@@ -316,6 +319,12 @@ fn setup_networking(root: &Path) -> Result<(), ContainerError> {
     ensure_directory(root.join("etc"))?;
     copy("/etc/resolv.conf", root.join("etc/resolv.conf"))?;
     copy("/etc/protocols", root.join("etc/protocols"))?;
+    Ok(())
+}
+
+fn setup_localhost() -> Result<(), ContainerError> {
+    // TODO: maybe it's better to hunt down the API to do this instead?
+    Command::new("ip").args(["link", "set", "lo", "up"]).output()?;
     Ok(())
 }
 
