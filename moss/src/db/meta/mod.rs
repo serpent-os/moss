@@ -315,16 +315,16 @@ impl Database {
                 batch_remove_impl(&ids, conn)?;
 
                 diesel::insert_into(model::meta::table).values(entries).execute(conn)?;
-                diesel::insert_into(model::meta_licenses::table)
+                diesel::insert_or_ignore_into(model::meta_licenses::table)
                     .values(licenses)
                     .execute(conn)?;
-                diesel::insert_into(model::meta_dependencies::table)
+                diesel::insert_or_ignore_into(model::meta_dependencies::table)
                     .values(dependencies)
                     .execute(conn)?;
-                diesel::insert_into(model::meta_providers::table)
+                diesel::insert_or_ignore_into(model::meta_providers::table)
                     .values(providers)
                     .execute(conn)?;
-                diesel::insert_into(model::meta_conflicts::table)
+                diesel::insert_or_ignore_into(model::meta_conflicts::table)
                     .values(conflicts)
                     .execute(conn)?;
                 Ok(())
