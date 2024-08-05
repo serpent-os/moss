@@ -43,3 +43,4 @@ strum.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
+zstd.workspace = true
