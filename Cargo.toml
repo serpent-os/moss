@@ -1,12 +1,6 @@
 [workspace]
-members = [
-    "boulder",
-    "moss",
-    "crates/*",
-]
-default-members = [
-    "moss"
-]
+members = ["boulder", "moss", "crates/*"]
+default-members = ["moss"]
 resolver = "2"
 
 [workspace.package]
@@ -23,13 +17,17 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 crossterm = "0.27.0"
 derive_more = "0.99.18"
 dialoguer = "0.11.0"
-diesel = { version = "2.2.1", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.2.1", features = [
+    "sqlite",
+    "returning_clauses_for_sqlite_3_35",
+] }
 diesel_migrations = "2.2.0"
 dirs = "5.0.1"
 elf = "0.7.4"
 indicatif = "0.17.8"
 itertools = "0.13.0"
 fs-err = { version = "2.11.0", features = ["tokio"] }
+filetime = "0.2.24"
 futures = "0.3.30"
 glob = "0.3.1"
 hex = "0.4.3"
@@ -37,11 +35,29 @@ indextree = "4.6.1"
 libsqlite3-sys = { version = "0.28.0", features = ["bundled"] }
 log = "0.4.22"
 nom = "7.1.3"
-nix = { version = "0.27.1", features = ["user", "fs", "sched", "process", "mount", "hostname", "signal", "term"] }
+nix = { version = "0.27.1", features = [
+    "user",
+    "fs",
+    "sched",
+    "process",
+    "mount",
+    "hostname",
+    "signal",
+    "term",
+] }
 petgraph = "0.6.5"
 rayon = "1.10.0"
 regex = "1.10.5"
-reqwest = { version = "0.12.5", default-features = false, features = ["brotli", "charset", "deflate", "gzip", "http2", "rustls-tls", "stream", "zstd"] }
+reqwest = { version = "0.12.5", default-features = false, features = [
+    "brotli",
+    "charset",
+    "deflate",
+    "gzip",
+    "http2",
+    "rustls-tls",
+    "stream",
+    "zstd",
+] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 serde_yaml = "0.9.34"
