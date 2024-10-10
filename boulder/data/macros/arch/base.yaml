@@ -449,6 +449,8 @@ flags               :
             cxx       : "-fno-reorder-blocks-and-partition​"
             ld        : "-Wl,-q"
         llvm:
+            c         : "-fno-split-machine-functions"
+            cxx       : "-fno-split-machine-functions"
             ld        : "-Wl,-q"
 
     # Toggle -fcommon (OFF)
